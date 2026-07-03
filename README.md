@@ -48,12 +48,10 @@ The patcher embeds `com.unity.ugui`, applies `ugui-msdfa-package.patch`, and add
 Verified in this project with:
 
 - Unity `6000.3.2f1` / Unity 6.3 LTS;
-- Windows Editor, Android target;
+- Windows Editor;
+- Android built target
 - `com.unity.ugui` `2.0.0`, embedded and patched;
-- `com.unity.burst` `1.8.27`;
-- `com.unity.collections` `2.6.3`.
-
-`package.json` declares Unity `2022.3`, but this PoC has only been checked on the version above.
+- no builds were made
 
 ## Memory Footprint
 
