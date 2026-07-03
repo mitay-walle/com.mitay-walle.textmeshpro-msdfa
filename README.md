@@ -79,6 +79,6 @@ Local stress result for glyph `V`, 1024x1024 atlas, 250 runs:
 - The outline parser targets TrueType `glyf`; other outline formats are out of scope for this package
 
 ## References
-
+used algorythm author's repos:
 - [Chlumsky/msdf-atlas-gen](https://github.com/Chlumsky/msdf-atlas-gen)
 - [Chlumsky/msdfgen](https://github.com/Chlumsky/msdfgen)
