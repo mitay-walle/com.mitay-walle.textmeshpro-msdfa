@@ -12,7 +12,7 @@ The package patches embedded `com.unity.ugui`, so pin Unity/UGUI versions and tr
 ## Features
 - `MSDFA Atlas` toggle in `Window > TextMeshPro > Font Asset Creator`
 - `MSDFA Atlas` field in TMP Font Asset Inspector > `Generation Settings`
-- RGBA32 distance-field atlas path and `TextMeshPro/MSDFA` shader
+- `TextMeshPro/MSDFA` shader
 - Burst-backed glyph rendering for supported TrueType `glyf` outlines
 
 ## Screenshots
