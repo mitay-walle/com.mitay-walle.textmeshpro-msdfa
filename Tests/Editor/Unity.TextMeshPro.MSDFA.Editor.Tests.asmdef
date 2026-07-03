@@ -1,0 +1,27 @@
+{
+    "name": "Unity.TextMeshPro.MSDFA.Editor.Tests",
+    "references": [
+        "Unity.TextMeshPro",
+        "Unity.TextMeshPro.Editor",
+        "Unity.PerformanceTesting",
+        "UnityEditor.UI",
+        "UnityEngine.UI"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "versionDefines": [
+        {
+            "name": "com.mitay-walle.textmeshpro-msdfa",
+            "expression": "0.1.0",
+            "define": "TMP_MSDFA_UGUI_PATCHED"
+        }
+    ]
+}

@@ -1,0 +1,561 @@
+diff --git a/Packages/com.unity.ugui/Editor/TMP/TMP_EditorResourceManager.cs b/Packages/com.unity.ugui/Editor/TMP/TMP_EditorResourceManager.cs
+index c63485d..bf0636f 100644
+--- a/Packages/com.unity.ugui/Editor/TMP/TMP_EditorResourceManager.cs
++++ b/Packages/com.unity.ugui/Editor/TMP/TMP_EditorResourceManager.cs
+@@ -193,6 +193,9 @@ namespace TMPro
+             if (!EditorUtility.IsPersistent(obj))
+                 return;
+ 
++            if (obj is TMP_FontAsset fontAsset && fontAsset.isMsdfaAtlasEnabled)
++                return;
++
+             if (tex != null)
+                 AssetDatabase.AddObjectToAsset(tex, obj);
+ 
+diff --git a/Packages/com.unity.ugui/Editor/TMP/TMP_FontAssetEditor.cs b/Packages/com.unity.ugui/Editor/TMP/TMP_FontAssetEditor.cs
+index 80aaee5..5d46b41 100644
+--- a/Packages/com.unity.ugui/Editor/TMP/TMP_FontAssetEditor.cs
++++ b/Packages/com.unity.ugui/Editor/TMP/TMP_FontAssetEditor.cs
+@@ -43,7 +43,7 @@ namespace TMPro.EditorUtilities
+     }
+ 
+     [CustomEditor(typeof(TMP_FontAsset))]
+-    public class TMP_FontAssetEditor : Editor
++    public partial class TMP_FontAssetEditor : Editor
+     {
+         private struct UI_PanelState
+         {
+@@ -271,6 +271,7 @@ namespace TMPro.EditorUtilities
+             m_AtlasWidth_prop = serializedObject.FindProperty("m_AtlasWidth");
+             m_AtlasHeight_prop = serializedObject.FindProperty("m_AtlasHeight");
+             m_IsMultiAtlasTexturesEnabled_prop = serializedObject.FindProperty("m_IsMultiAtlasTexturesEnabled");
++            OnMsdfaInspectorEnable();
+             m_ClearDynamicDataOnBuild_prop = serializedObject.FindProperty("m_ClearDynamicDataOnBuild");
+             m_GetFontFeatures_prop = serializedObject.FindProperty("m_GetFontFeatures");
+ 
+@@ -546,6 +547,7 @@ namespace TMPro.EditorUtilities
+                             m_DisplayDestructiveChangeWarning = true;
+                         }
+                         EditorGUILayout.PropertyField(m_SamplingPointSize_prop, new GUIContent("Sampling Point Size"));
++                        DrawMsdfaAtlasInspectorControl();
+                         if (EditorGUI.EndChangeCheck())
+                         {
+                             m_DisplayDestructiveChangeWarning = true;
+@@ -602,6 +604,8 @@ namespace TMPro.EditorUtilities
+                                     m_FaceInfoDirty = false;
+                                 }
+ 
++                                ApplyMsdfaInspectorSettings();
++
+                                 Material mat = m_fontAsset.material;
+ 
+                                 // Update material
+@@ -2071,6 +2075,7 @@ namespace TMPro.EditorUtilities
+             m_GenerationSettings.padding         = m_AtlasPadding_prop.intValue;
+             m_GenerationSettings.atlasWidth      = m_AtlasWidth_prop.intValue;
+             m_GenerationSettings.atlasHeight     = m_AtlasHeight_prop.intValue;
++            SaveMsdfaGenerationSettings();
+         }
+ 
+         void RestoreGenerationSettings()
+@@ -2088,6 +2093,7 @@ namespace TMPro.EditorUtilities
+             m_AtlasPadding_prop.intValue = m_GenerationSettings.padding;
+             m_AtlasWidth_prop.intValue = m_GenerationSettings.atlasWidth;
+             m_AtlasHeight_prop.intValue = m_GenerationSettings.atlasHeight;
++            RestoreMsdfaGenerationSettings();
+         }
+ 
+ 
+diff --git a/Packages/com.unity.ugui/Editor/TMP/TMPro_FontAssetCreatorWindow.cs b/Packages/com.unity.ugui/Editor/TMP/TMPro_FontAssetCreatorWindow.cs
+index ad71747..e23abd7 100644
+--- a/Packages/com.unity.ugui/Editor/TMP/TMPro_FontAssetCreatorWindow.cs
++++ b/Packages/com.unity.ugui/Editor/TMP/TMPro_FontAssetCreatorWindow.cs
+@@ -13,7 +13,7 @@ using Object = UnityEngine.Object;
+ 
+ namespace TMPro.EditorUtilities
+ {
+-    public class TMPro_FontAssetCreatorWindow : EditorWindow
++    public partial class TMPro_FontAssetCreatorWindow : EditorWindow
+     {
+         [MenuItem("Window/TextMeshPro/Font Asset Creator", false, 2025)]
+         public static void ShowFontAtlasCreatorWindow()
+@@ -78,6 +78,7 @@ namespace TMPro.EditorUtilities
+ 
+             // Even if we don't have any saved generation settings, we still want to pre-select the source font file.
+             window.m_SelectedFontAsset = fontAsset;
++            window.LoadMsdfaAtlasSettings(fontAsset);
+ 
+             // Make sure TMP Essential Resources have been imported.
+             window.CheckEssentialResources();
+@@ -684,6 +685,8 @@ namespace TMPro.EditorUtilities
+                     m_GlyphRenderMode = (GlyphRenderMode)selectedUIMode;
+                 }
+ 
++                DrawMsdfaAtlasControls();
++
+                 m_IncludeFontFeatures = EditorGUILayout.Toggle("Get Font Features", m_IncludeFontFeatures);
+ 
+                 EditorGUILayout.Space();
+@@ -1066,22 +1069,27 @@ namespace TMPro.EditorUtilities
+ 
+                                 m_IsRenderingDone = false;
+ 
+-                                // Allocate texture data
+-                                #if TEXTCORE_FONT_ENGINE_1_5_OR_NEWER
+-                                if (m_GlyphRenderMode == GlyphRenderMode.COLOR || m_GlyphRenderMode == GlyphRenderMode.COLOR_HINTED)
+-                                    m_AtlasTextureBuffer = new byte[m_AtlasWidth * m_AtlasHeight * 4];
+-                                else
+-                                    m_AtlasTextureBuffer = new byte[m_AtlasWidth * m_AtlasHeight];
+-                                #else
+-                                m_AtlasTextureBuffer = new byte[m_AtlasWidth * m_AtlasHeight];
+-                                #endif
+-
+                                 m_AtlasGenerationProgressLabel = "Rendering glyphs...";
+ 
+-                                // Render and add glyphs to the given atlas texture.
+-                                if (m_GlyphsToRender.Count > 0)
++                                if (ShouldRenderMsdfaAtlas())
+                                 {
+-                                    FontEngine.RenderGlyphsToTexture(m_GlyphsToRender, m_Padding, m_GlyphRenderMode, m_AtlasTextureBuffer, m_AtlasWidth, m_AtlasHeight);
++                                    m_AtlasTextureBuffer = null;
++                                }
++                                else
++                                {
++                                    // Allocate texture data
++                                    #if TEXTCORE_FONT_ENGINE_1_5_OR_NEWER
++                                    if (m_GlyphRenderMode == GlyphRenderMode.COLOR || m_GlyphRenderMode == GlyphRenderMode.COLOR_HINTED)
++                                        m_AtlasTextureBuffer = new byte[m_AtlasWidth * m_AtlasHeight * 4];
++                                    else
++                                        m_AtlasTextureBuffer = new byte[m_AtlasWidth * m_AtlasHeight];
++                                    #else
++                                    m_AtlasTextureBuffer = new byte[m_AtlasWidth * m_AtlasHeight];
++                                    #endif
++
++                                    // Render and add glyphs to the given atlas texture.
++                                    if (m_GlyphsToRender.Count > 0)
++                                        FontEngine.RenderGlyphsToTexture(m_GlyphsToRender, m_Padding, m_GlyphRenderMode, m_AtlasTextureBuffer, m_AtlasWidth, m_AtlasHeight);
+                                 }
+ 
+                                 m_IsRenderingDone = true;
+@@ -1318,6 +1326,26 @@ namespace TMPro.EditorUtilities
+             if (m_FontAtlasTexture != null)
+                 DestroyImmediate(m_FontAtlasTexture);
+ 
++            if (ShouldRenderMsdfaAtlas())
++            {
++                m_FontAtlasTexture = new Texture2D(m_AtlasWidth, m_AtlasHeight, TextureFormat.RGBA32, false, true);
++                FontEngine.ResetAtlasTexture(m_FontAtlasTexture);
++
++                TMP_FontAsset temporaryFontAsset = CreateTemporaryMsdfaFontAsset();
++                try
++                {
++                    TMP_MSDFAAtlasRenderer.RenderGlyphsToTexture(m_GlyphsToRender, m_Padding, m_GlyphRenderMode, m_FontAtlasTexture, temporaryFontAsset, true);
++                }
++                finally
++                {
++                    DestroyImmediate(temporaryFontAsset);
++                }
++
++                m_AtlasTextureBuffer = null;
++                m_FontAtlasTexture.Apply(false, false);
++                return;
++            }
++
+             Color32[] colors = new Color32[m_AtlasWidth * m_AtlasHeight];
+ 
+             #if TEXTCORE_FONT_ENGINE_1_5_OR_NEWER
+@@ -1338,7 +1366,7 @@ namespace TMPro.EditorUtilities
+                     }
+                     break;
+                 default:
+-                    m_FontAtlasTexture = new Texture2D(m_AtlasWidth, m_AtlasHeight, TextureFormat.Alpha8, false, true);
++                    m_FontAtlasTexture = new Texture2D(m_AtlasWidth, m_AtlasHeight, TMP_MSDFAAtlasRenderer.GetAtlasTextureFormat(m_GlyphRenderMode, m_IsMsdfaAtlasEnabled), false, true);
+ 
+                     for (int i = 0; i < colors.Length; i++)
+                     {
+@@ -1348,7 +1376,7 @@ namespace TMPro.EditorUtilities
+                     break;
+             }
+             #else
+-            m_FontAtlasTexture = new Texture2D(m_AtlasWidth, m_AtlasHeight, TextureFormat.Alpha8, false, true);
++            m_FontAtlasTexture = new Texture2D(m_AtlasWidth, m_AtlasHeight, TMP_MSDFAAtlasRenderer.GetAtlasTextureFormat(m_GlyphRenderMode, m_IsMsdfaAtlasEnabled), false, true);
+ 
+             for (int i = 0; i < colors.Length; i++)
+             {
+@@ -1442,13 +1470,21 @@ namespace TMPro.EditorUtilities
+             string tex_FileName = Path.GetFileNameWithoutExtension(relativeAssetPath);
+             string tex_Path_NoExt = tex_DirName + "/" + tex_FileName;
+ 
++            string fontAssetPath = tex_Path_NoExt + ".asset";
++
+             // Check if TextMeshPro font asset already exists. If not, create a new one. Otherwise update the existing one.
+-            TMP_FontAsset fontAsset = AssetDatabase.LoadAssetAtPath(tex_Path_NoExt + ".asset", typeof(TMP_FontAsset)) as TMP_FontAsset;
++            TMP_FontAsset fontAsset = AssetDatabase.LoadAssetAtPath(fontAssetPath, typeof(TMP_FontAsset)) as TMP_FontAsset;
++            if (fontAsset == null && AssetDatabase.LoadMainAssetAtPath(fontAssetPath) != null)
++            {
++                Debug.LogError("Unable to save TextMesh Pro font asset because the selected path already contains a non-TMP_FontAsset: " + fontAssetPath);
++                return;
++            }
++
+             if (fontAsset == null)
+             {
+                 //Debug.Log("Creating TextMeshPro font asset!");
+                 fontAsset = ScriptableObject.CreateInstance<TMP_FontAsset>(); // Create new TextMeshPro Font Asset.
+-                AssetDatabase.CreateAsset(fontAsset, tex_Path_NoExt + ".asset");
++                AssetDatabase.CreateAsset(fontAsset, fontAssetPath);
+ 
+                 // Set version number of font asset
+                 fontAsset.version = "1.1.0";
+@@ -1548,12 +1584,12 @@ namespace TMPro.EditorUtilities
+                 if (isReadableState == false)
+                     FontEngineEditorUtilities.SetAtlasTextureIsReadable(tex, true);
+ 
+-                if (tex.width != m_AtlasWidth || tex.height != m_AtlasHeight)
++                if (tex.width != m_AtlasWidth || tex.height != m_AtlasHeight || tex.format != m_FontAtlasTexture.format)
+                 {
+                     #if UNITY_2021_2_OR_NEWER
+-                    tex.Reinitialize(m_AtlasWidth, m_AtlasHeight);
++                    TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(tex, m_AtlasWidth, m_AtlasHeight, m_GlyphRenderMode, m_IsMsdfaAtlasEnabled);
+                     #else
+-                    tex.Resize(m_AtlasWidth, m_AtlasHeight);
++                    TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(tex, m_AtlasWidth, m_AtlasHeight, m_GlyphRenderMode, m_IsMsdfaAtlasEnabled);
+                     #endif
+ 
+                     tex.Apply(false);
+@@ -1595,6 +1631,7 @@ namespace TMPro.EditorUtilities
+             m_SelectedFontAsset = fontAsset;
+             m_LegacyFontAsset = null;
+             fontAsset.creationSettings = SaveFontCreationSettings();
++            ApplyMsdfaAtlasSettings(fontAsset);
+ 
+             AssetDatabase.SaveAssets();
+ 
+@@ -1624,13 +1661,21 @@ namespace TMPro.EditorUtilities
+             string tex_Path_NoExt = tex_DirName + "/" + tex_FileName;
+ 
+ 
++            string fontAssetPath = tex_Path_NoExt + ".asset";
++
+             // Check if TextMeshPro font asset already exists. If not, create a new one. Otherwise update the existing one.
+-            TMP_FontAsset fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(tex_Path_NoExt + ".asset");
++            TMP_FontAsset fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(fontAssetPath);
++            if (fontAsset == null && AssetDatabase.LoadMainAssetAtPath(fontAssetPath) != null)
++            {
++                Debug.LogError("Unable to save TextMesh Pro font asset because the selected path already contains a non-TMP_FontAsset: " + fontAssetPath);
++                return;
++            }
++
+             if (fontAsset == null)
+             {
+                 //Debug.Log("Creating TextMeshPro font asset!");
+                 fontAsset = ScriptableObject.CreateInstance<TMP_FontAsset>(); // Create new TextMeshPro Font Asset.
+-                AssetDatabase.CreateAsset(fontAsset, tex_Path_NoExt + ".asset");
++                AssetDatabase.CreateAsset(fontAsset, fontAssetPath);
+ 
+                 // Set version number of font asset
+                 fontAsset.version = "1.1.0";
+@@ -1668,7 +1713,7 @@ namespace TMPro.EditorUtilities
+                 AssetDatabase.AddObjectToAsset(m_FontAtlasTexture, fontAsset);
+ 
+                 // Create new Material and Add it as Sub-Asset
+-                Shader default_Shader = Shader.Find("TextMeshPro/Distance Field");
++                Shader default_Shader = TMP_MSDFAAtlasRenderer.GetDistanceFieldShader(m_IsMsdfaAtlasEnabled, Shader.Find("TextMeshPro/Distance Field"));
+                 Material tmp_material = new Material(default_Shader);
+ 
+                 tmp_material.name = tex_FileName + " Material";
+@@ -1739,12 +1784,12 @@ namespace TMPro.EditorUtilities
+                 if (isReadableState == false)
+                     FontEngineEditorUtilities.SetAtlasTextureIsReadable(tex, true);
+ 
+-                if (tex.width != m_AtlasWidth || tex.height != m_AtlasHeight)
++                if (tex.width != m_AtlasWidth || tex.height != m_AtlasHeight || tex.format != m_FontAtlasTexture.format)
+                 {
+                     #if UNITY_2021_2_OR_NEWER
+-                    tex.Reinitialize(m_AtlasWidth, m_AtlasHeight);
++                    TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(tex, m_AtlasWidth, m_AtlasHeight, m_GlyphRenderMode, m_IsMsdfaAtlasEnabled);
+                     #else
+-                    tex.Resize(m_AtlasWidth, m_AtlasHeight);
++                    TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(tex, m_AtlasWidth, m_AtlasHeight, m_GlyphRenderMode, m_IsMsdfaAtlasEnabled);
+                     #endif
+ 
+                     tex.Apply(false);
+@@ -1790,6 +1835,7 @@ namespace TMPro.EditorUtilities
+             m_SelectedFontAsset = fontAsset;
+             m_LegacyFontAsset = null;
+             fontAsset.creationSettings = SaveFontCreationSettings();
++            ApplyMsdfaAtlasSettings(fontAsset);
+ 
+             AssetDatabase.SaveAssets();
+ 
+diff --git a/Packages/com.unity.ugui/Editor/TMP/Unity.TextMeshPro.Editor.asmdef b/Packages/com.unity.ugui/Editor/TMP/Unity.TextMeshPro.Editor.asmdef
+index 73cf18f..f2b0d53 100644
+--- a/Packages/com.unity.ugui/Editor/TMP/Unity.TextMeshPro.Editor.asmdef
++++ b/Packages/com.unity.ugui/Editor/TMP/Unity.TextMeshPro.Editor.asmdef
+@@ -17,6 +17,11 @@
+     "autoReferenced": true,
+     "defineConstraints": [],
+     "versionDefines": [
++        {
++            "name": "com.mitay-walle.textmeshpro-msdfa",
++            "expression": "0.1.0",
++            "define": "TMP_MSDFA_UGUI_PATCHED"
++        },
+         {
+             "name": "com.unity.textcore",
+             "expression": "1.0.0-preview.0",
+diff --git a/Packages/com.unity.ugui/Runtime/TMP/TMP_FontAsset.cs b/Packages/com.unity.ugui/Runtime/TMP/TMP_FontAsset.cs
+index 018c9eb..20ef9e9 100644
+--- a/Packages/com.unity.ugui/Runtime/TMP/TMP_FontAsset.cs
++++ b/Packages/com.unity.ugui/Runtime/TMP/TMP_FontAsset.cs
+@@ -26,7 +26,7 @@ namespace TMPro
+ 
+ 
+     [Serializable][ExcludeFromPresetAttribute]
+-    public class TMP_FontAsset : TMP_Asset
++    public partial class TMP_FontAsset : TMP_Asset
+     {
+         /// <summary>
+         /// This field is set when the font asset is first created.
+@@ -599,11 +599,7 @@ namespace TMPro
+             fontAsset.atlasTextures = new Texture2D[1];
+ 
+             // Create and add font atlas texture.
+-            #if TEXTCORE_FONT_ENGINE_1_5_OR_NEWER
+-            TextureFormat texFormat = ((GlyphRasterModes)renderMode & GlyphRasterModes.RASTER_MODE_COLOR) == GlyphRasterModes.RASTER_MODE_COLOR ? TextureFormat.RGBA32 : TextureFormat.Alpha8;
+-            #else
+-            TextureFormat texFormat = TextureFormat.Alpha8;
+-            #endif
++            TextureFormat texFormat = TMP_MSDFAAtlasRenderer.GetAtlasTextureFormat(renderMode, fontAsset.m_IsMsdfaAtlasEnabled);
+             Texture2D texture = new Texture2D(1, 1, texFormat, false);
+             fontAsset.atlasTextures[0] = texture;
+ 
+@@ -633,7 +629,7 @@ namespace TMPro
+                 packingModifier = 1;
+ 
+                 // Optimize by adding static ref to shader.
+-                Material tmp_material = new Material(ShaderUtilities.ShaderRef_MobileSDF);
++                Material tmp_material = new Material(TMP_MSDFAAtlasRenderer.GetDistanceFieldShader(fontAsset.m_IsMsdfaAtlasEnabled, ShaderUtilities.ShaderRef_MobileSDF));
+ 
+                 //tmp_material.name = texture.name + " Material";
+                 tmp_material.SetTexture(ShaderUtilities.ID_MainTex, texture);
+@@ -1899,16 +1895,16 @@ namespace TMPro
+             if (m_AtlasTextures[m_AtlasTextureIndex].width <= 1 || m_AtlasTextures[m_AtlasTextureIndex].height <= 1)
+             {
+                 #if UNITY_2021_2_OR_NEWER
+-                m_AtlasTextures[m_AtlasTextureIndex].Reinitialize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #else
+-                m_AtlasTextures[m_AtlasTextureIndex].Resize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #endif
+ 
+                 FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+             }
+ 
+             Glyph[] glyphs;
+-            bool allGlyphsAddedToTexture = FontEngine.TryAddGlyphsToTexture(m_GlyphsToAdd, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], out glyphs);
++            bool allGlyphsAddedToTexture = TMP_MSDFAAtlasRenderer.TryAddGlyphsToTexture(m_GlyphsToAdd, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], this, m_IsMsdfaAtlasEnabled, out glyphs);
+ 
+             // Add new glyphs to relevant font asset data structure
+             for (int i = 0; i < glyphs.Length && glyphs[i] != null; i++)
+@@ -2123,9 +2119,9 @@ namespace TMPro
+             if (m_AtlasTextures[m_AtlasTextureIndex].width <= 1 || m_AtlasTextures[m_AtlasTextureIndex].height <= 1)
+             {
+                 #if UNITY_2021_2_OR_NEWER
+-                m_AtlasTextures[m_AtlasTextureIndex].Reinitialize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #else
+-                m_AtlasTextures[m_AtlasTextureIndex].Resize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #endif
+ 
+                 FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+@@ -2133,7 +2129,7 @@ namespace TMPro
+ 
+             Glyph[] glyphs;
+ 
+-            bool allGlyphsAddedToTexture = FontEngine.TryAddGlyphsToTexture(m_GlyphsToAdd, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], out glyphs);
++            bool allGlyphsAddedToTexture = TMP_MSDFAAtlasRenderer.TryAddGlyphsToTexture(m_GlyphsToAdd, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], this, m_IsMsdfaAtlasEnabled, out glyphs);
+ 
+             for (int i = 0; i < glyphs.Length && glyphs[i] != null; i++)
+             {
+@@ -2253,13 +2249,13 @@ namespace TMPro
+             if (m_AtlasTextures[m_AtlasTextureIndex].width <= 1 || m_AtlasTextures[m_AtlasTextureIndex].height <= 1
+             {
+                 //Debug.Log("Setting initial size of atlas texture used by font asset [" + this.name + "].");
+-                m_AtlasTextures[m_AtlasTextureIndex].Resize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+             }
+ 
+             Glyph glyph;
+ 
+-            if (FontEngine.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], out glyph))
++            if (TMP_MSDFAAtlasRenderer.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], this, m_IsMsdfaAtlasEnabled, out glyph))
+             {
+                 // Add new glyph to glyph table.
+                 m_GlyphTable.Add(glyph);
+@@ -2302,7 +2298,7 @@ namespace TMPro
+             if (m_AtlasTextures[m_AtlasTextureIndex].width <= 1 || m_AtlasTextures[m_AtlasTextureIndex].height <= 1)
+             {
+                 //Debug.Log("Setting initial size of atlas texture used by font asset [" + this.name + "].");
+-                m_AtlasTextures[m_AtlasTextureIndex].Resize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+             }
+ 
+@@ -2404,9 +2400,9 @@ namespace TMPro
+             if (m_AtlasTextures[m_AtlasTextureIndex].width <= 1 || m_AtlasTextures[m_AtlasTextureIndex].height <= 1)
+             {
+                 #if UNITY_2021_2_OR_NEWER
+-                m_AtlasTextures[m_AtlasTextureIndex].Reinitialize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #else
+-                m_AtlasTextures[m_AtlasTextureIndex].Resize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #endif
+ 
+                 FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+@@ -2416,7 +2412,7 @@ namespace TMPro
+             //FontEngine.SetTextureUploadMode(false);
+ 
+             // Try adding glyph to local atlas texture
+-            if (FontEngine.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], out glyph))
++            if (TMP_MSDFAAtlasRenderer.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], this, m_IsMsdfaAtlasEnabled, out glyph))
+             {
+                 // Update glyph atlas index
+                 glyph.atlasIndex = m_AtlasTextureIndex;
+@@ -2458,7 +2454,7 @@ namespace TMPro
+                 SetupNewAtlasTexture();
+ 
+                 // Try adding glyph to newly created atlas texture
+-                if (FontEngine.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], out glyph))
++                if (TMP_MSDFAAtlasRenderer.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], this, m_IsMsdfaAtlasEnabled, out glyph))
+                 {
+                     // Update glyph atlas index
+                     glyph.atlasIndex = m_AtlasTextureIndex;
+@@ -2611,9 +2607,9 @@ namespace TMPro
+             if (m_AtlasTextures[m_AtlasTextureIndex].width <= 1 || m_AtlasTextures[m_AtlasTextureIndex].height <= 1)
+             {
+                 #if UNITY_2021_2_OR_NEWER
+-                m_AtlasTextures[m_AtlasTextureIndex].Reinitialize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #else
+-                m_AtlasTextures[m_AtlasTextureIndex].Resize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #endif
+ 
+                 FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+@@ -2623,7 +2619,7 @@ namespace TMPro
+             //FontEngine.SetTextureUploadMode(false);
+ 
+             // Try adding glyph to local atlas texture
+-            if (FontEngine.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], out glyph))
++            if (TMP_MSDFAAtlasRenderer.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], this, m_IsMsdfaAtlasEnabled, out glyph))
+             {
+                 // Update glyph atlas index
+                 glyph.atlasIndex = m_AtlasTextureIndex;
+@@ -2665,7 +2661,7 @@ namespace TMPro
+                 SetupNewAtlasTexture();
+ 
+                 // Try adding glyph to newly created atlas texture
+-                if (FontEngine.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], out glyph))
++                if (TMP_MSDFAAtlasRenderer.TryAddGlyphToTexture(glyphIndex, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], this, m_IsMsdfaAtlasEnabled, out glyph))
+                 {
+                     // Update glyph atlas index
+                     glyph.atlasIndex = m_AtlasTextureIndex;
+@@ -2830,7 +2826,7 @@ namespace TMPro
+             if (m_AtlasTextures[m_AtlasTextureIndex].width <= 1 || m_AtlasTextures[m_AtlasTextureIndex].height <= 1)
+             {
+                 //Debug.Log("Setting initial size of atlas texture used by font asset [" + this.name + "].");
+-                m_AtlasTextures[m_AtlasTextureIndex].Resize(m_AtlasWidth, m_AtlasHeight);
++                TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+             }
+ 
+@@ -2878,7 +2874,7 @@ namespace TMPro
+             Glyph[] glyphs;
+ 
+             // Try adding remaining glyphs in the newly created atlas texture
+-            bool allGlyphsAddedToTexture = FontEngine.TryAddGlyphsToTexture(m_GlyphsToAdd, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], out glyphs);
++            bool allGlyphsAddedToTexture = TMP_MSDFAAtlasRenderer.TryAddGlyphsToTexture(m_GlyphsToAdd, m_AtlasPadding, GlyphPackingMode.BestShortSideFit, m_FreeGlyphRects, m_UsedGlyphRects, m_AtlasRenderMode, m_AtlasTextures[m_AtlasTextureIndex], this, m_IsMsdfaAtlasEnabled, out glyphs);
+ 
+             // Add new glyphs to relevant data structures.
+             for (int i = 0; i < glyphs.Length && glyphs[i] != null; i++)
+@@ -2938,11 +2934,7 @@ namespace TMPro
+                 Array.Resize(ref m_AtlasTextures, m_AtlasTextures.Length * 2);
+ 
+             // Initialize new atlas texture
+-            #if TEXTCORE_FONT_ENGINE_1_5_OR_NEWER
+-            TextureFormat texFormat = ((GlyphRasterModes)m_AtlasRenderMode & GlyphRasterModes.RASTER_MODE_COLOR) == GlyphRasterModes.RASTER_MODE_COLOR ? TextureFormat.RGBA32 : TextureFormat.Alpha8;
+-            #else
+-            TextureFormat texFormat = TextureFormat.Alpha8;
+-            #endif
++            TextureFormat texFormat = TMP_MSDFAAtlasRenderer.GetAtlasTextureFormat(m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+             m_AtlasTextures[m_AtlasTextureIndex] = new Texture2D(m_AtlasWidth, m_AtlasHeight, texFormat, false);
+             FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+ 
+@@ -2957,7 +2949,10 @@ namespace TMPro
+             Texture2D tex = m_AtlasTextures[m_AtlasTextureIndex];
+             tex.name = atlasTexture.name + " " + m_AtlasTextureIndex;
+ 
+-            OnFontAssetTextureChanged?.Invoke(tex, this);
++            if (m_IsMsdfaAtlasEnabled)
++                tex.hideFlags = HideFlags.DontSave;
++            else
++                OnFontAssetTextureChanged?.Invoke(tex, this);
+             #endif
+         }
+ 
+@@ -2981,9 +2976,9 @@ namespace TMPro
+             if (m_AtlasTextures[m_AtlasTextureIndex].width <= 1 || m_AtlasTextures[m_AtlasTextureIndex].height <= 1)
+             {
+                 #if UNITY_2021_2_OR_NEWER
+-                    m_AtlasTextures[m_AtlasTextureIndex].Reinitialize(m_AtlasWidth, m_AtlasHeight);
++                    TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #else
+-                    m_AtlasTextures[m_AtlasTextureIndex].Resize(m_AtlasWidth, m_AtlasHeight);
++                    TMP_MSDFAAtlasRenderer.ResizeAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex], m_AtlasWidth, m_AtlasHeight, m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+                 #endif
+ 
+                 FontEngine.ResetAtlasTexture(m_AtlasTextures[m_AtlasTextureIndex]);
+@@ -3590,11 +3585,7 @@ namespace TMPro
+                 #endif
+             }
+ 
+-            #if TEXTCORE_FONT_ENGINE_1_5_OR_NEWER
+-            TextureFormat texFormat = ((GlyphRasterModes)m_AtlasRenderMode & GlyphRasterModes.RASTER_MODE_COLOR) == GlyphRasterModes.RASTER_MODE_COLOR ? TextureFormat.RGBA32 : TextureFormat.Alpha8;
+-            #else
+-            TextureFormat texFormat = TextureFormat.Alpha8;
+-            #endif
++            TextureFormat texFormat = TMP_MSDFAAtlasRenderer.GetAtlasTextureFormat(m_AtlasRenderMode, m_IsMsdfaAtlasEnabled);
+ 
+             if (setAtlasSizeToZero)
+             {
+diff --git a/Packages/com.unity.ugui/Runtime/TMP/Unity.TextMeshPro.asmdef b/Packages/com.unity.ugui/Runtime/TMP/Unity.TextMeshPro.asmdef
+index 31e8cc4..0dc1ec1 100644
+--- a/Packages/com.unity.ugui/Runtime/TMP/Unity.TextMeshPro.asmdef
++++ b/Packages/com.unity.ugui/Runtime/TMP/Unity.TextMeshPro.asmdef
+@@ -2,7 +2,9 @@
+     "name": "Unity.TextMeshPro",
+     "rootNamespace": "",
+     "references": [
+-        "GUID:43b111c4a445f446abd2c02e77750ff5"
++        "GUID:43b111c4a445f446abd2c02e77750ff5",
++        "GUID:2665a8d13d1b3f18800f46e256720795",
++        "GUID:e0cd26848372d4e5c891c569017e11f1"
+     ],
+     "includePlatforms": [],
+     "excludePlatforms": [],
+@@ -12,6 +14,11 @@
+     "autoReferenced": true,
+     "defineConstraints": [],
+     "versionDefines": [
++        {
++            "name": "com.mitay-walle.textmeshpro-msdfa",
++            "expression": "0.1.0",
++            "define": "TMP_MSDFA_UGUI_PATCHED"
++        },
+         {
+             "name": "Unity",
+             "expression": "[2022.3.16f1,2023.1)",

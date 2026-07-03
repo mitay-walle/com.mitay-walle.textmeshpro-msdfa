@@ -1,0 +1,20 @@
+{
+  "name": "com.mitay-walle.textmeshpro-msdfa",
+  "displayName": "TextMeshPro MSDFA",
+  "version": "0.1.0",
+  "unity": "2022.3",
+  "description": "MSDFA font atlas generation and shader support for TextMeshPro.",
+  "keywords": [
+    "TextMeshPro",
+    "TMP",
+    "MSDFA",
+    "MSDF",
+    "MTSDF"
+  ],
+  "dependencies": {
+    "com.unity.ugui": "2.0.0",
+    "com.unity.burst": "1.8.27",
+    "com.unity.collections": "2.6.3",
+    "com.unity.test-framework.performance": "3.2.0"
+  }
+}
