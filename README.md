@@ -1,23 +1,26 @@
 # TextMeshPro MSDFA
+Proof-of-concept UPM package for TextMeshPro with MSDFA / MTSDF - rendering. MSDF in RGB-channels (for sharp angles) & SDF in alpha-channel (for soft effects)
 
-Proof-of-concept Unity package for TextMeshPro atlases with MSDFA/MTSDF-style data: MSDF in RGB plus SDF alpha, rendered through `TextMeshPro/MSDFA`.
+![MSDFA vs SDF text comparison](Documentation~/images/unity-discussions-msdf-vs-sdf.jpeg)
 
-It is experimental. The package patches embedded `com.unity.ugui`, so pin Unity/UGUI versions and treat the API/serialized data as unstable.
+## built-in solution Request 
+Please, UPVOTE built-in solution thread here: [Unity Discussions: TextMeshPro/TextCore MSDF request](https://discussions.unity.com/t/2026-could-textmeshpro-textcore-ever-support-multi-channel-signed-distance-fields/1730024)
+
+
+# It is experimental
+The package patches embedded `com.unity.ugui`, so pin Unity/UGUI versions and treat the API/serialized data as **unstable**
 
 ## Features
-
-- `MSDFA Atlas` toggle in `Window > TextMeshPro > Font Asset Creator`.
-- `MSDFA Atlas` field in TMP Font Asset Inspector > `Generation Settings`.
-- RGBA32 distance-field atlas path and `TextMeshPro/MSDFA` shader.
-- Burst-backed glyph rendering for supported TrueType `glyf` outlines.
+- `MSDFA Atlas` toggle in `Window > TextMeshPro > Font Asset Creator`
+- `MSDFA Atlas` field in TMP Font Asset Inspector > `Generation Settings`
+- RGBA32 distance-field atlas path and `TextMeshPro/MSDFA` shader
+- Burst-backed glyph rendering for supported TrueType `glyf` outlines
 
 ## Screenshots
 
 ![Font Asset Creator MSDFA Atlas toggle](Documentation~/images/tmp-msdfa-font-asset-creator.png)
 
 ![TMP Font Asset Inspector MSDFA Atlas field](Documentation~/images/tmp-msdfa-font-asset-inspector.png)
-
-![MSDFA vs SDF text comparison](Documentation~/images/unity-discussions-msdf-vs-sdf.jpeg)
 
 ![MSDFA atlas memory example](Documentation~/images/unity-discussions-msdf-detail.png)
 
@@ -31,15 +34,18 @@ Add the package from Git URL in Unity Package Manager:
 https://github.com/mitay-walle/com.mitay-walle.textmeshpro-msdfa.git#v0.1.0
 ```
 
-Then run:
+Then execute menu item:
 
 ```text
 Tools > TextMeshPro MSDFA > Embed UGUI And Apply Patch
 ```
 
-The patcher embeds `com.unity.ugui`, applies `ugui-msdfa-package.patch`, and adds the `TMP_MSDFA_UGUI_PATCHED` define to TMP runtime/editor asmdefs. Git CLI must be available in `PATH`.
+### Attention
+!!! Git CLI must be available in `PATH` !!!
 
-## Tested
+The patcher embeds `com.unity.ugui`, applies `ugui-msdfa-package.patch`, and adds the `TMP_MSDFA_UGUI_PATCHED` define to TMP runtime/editor asmdefs. 
+
+## Tests info
 
 Verified with:
 
@@ -49,7 +55,7 @@ Verified with:
 - `com.unity.ugui` `2.0.0`, embedded and patched;
 - no builds were made
 
-## Memory Footprint
+## Memory & Performance
 
 Atlas memory: MSDFA uses `TextureFormat.RGBA32`. Standard TMP SDF usually uses `Alpha8`, so atlas memory is about 4x higher at the same resolution, mipmaps off.
 
@@ -68,12 +74,11 @@ Local stress result for glyph `V`, 1024x1024 atlas, 250 runs:
 
 ## Limitations
 
-- PoC, not production-ready.
-- Patch compatibility depends on the tested `com.unity.ugui` source layout.
-- The outline parser targets TrueType `glyf`; other outline formats are out of scope for this package.
+- PoC, not production-ready
+- Patch compatibility depends on the tested `com.unity.ugui` source layout
+- The outline parser targets TrueType `glyf`; other outline formats are out of scope for this package
 
 ## References
 
-- [Unity Discussions: TextMeshPro/TextCore MSDF request](https://discussions.unity.com/t/2026-could-textmeshpro-textcore-ever-support-multi-channel-signed-distance-fields/1730024)
 - [Chlumsky/msdf-atlas-gen](https://github.com/Chlumsky/msdf-atlas-gen)
 - [Chlumsky/msdfgen](https://github.com/Chlumsky/msdfgen)
