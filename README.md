@@ -17,10 +17,6 @@ It is experimental. The package patches embedded `com.unity.ugui`, so pin Unity/
 
 ![TMP Font Asset Inspector MSDFA Atlas field](Documentation~/images/tmp-msdfa-font-asset-inspector.png)
 
-## Visual Reference
-
-Images below are local copies from the Unity Discussions post linked in References.
-
 ![MSDFA vs SDF text comparison](Documentation~/images/unity-discussions-msdf-vs-sdf.jpeg)
 
 ![MSDFA atlas memory example](Documentation~/images/unity-discussions-msdf-detail.png)
@@ -45,7 +41,7 @@ The patcher embeds `com.unity.ugui`, applies `ugui-msdfa-package.patch`, and add
 
 ## Tested
 
-Verified in this project with:
+Verified with:
 
 - Unity `6000.3.2f1` / Unity 6.3 LTS;
 - Windows Editor;
@@ -70,15 +66,11 @@ Local stress result for glyph `V`, 1024x1024 atlas, 250 runs:
 - MSDFA: `RGBA32`, `2.189 ms/run`;
 - SDF: `Alpha8`, `0.521 ms/run`.
 
-Profile target builds before production use.
-
 ## Limitations
 
 - PoC, not production-ready.
 - Patch compatibility depends on the tested `com.unity.ugui` source layout.
-- Only distance-field TMP render modes use MSDFA.
 - The outline parser targets TrueType `glyf`; other outline formats are out of scope for this package.
-- A cleaner long-term solution would be native TextCore glyph-outline access and `GlyphRenderMode.MSDF`/`GlyphRenderMode.MTSDF`.
 
 ## References
 
