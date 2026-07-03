@@ -20,18 +20,10 @@ It is experimental. The package patches embedded `com.unity.ugui`, so pin Unity/
 
 ## Installation
 
-Add the package from Git URL in Unity Package Manager.
-
-If this package is at the repository root:
+Add the package from Git URL in Unity Package Manager:
 
 ```text
-https://github.com/OWNER/REPO.git#v0.1.0
-```
-
-If it is stored under `Packages/com.mitay-walle.textmeshpro-msdfa`:
-
-```text
-https://github.com/OWNER/REPO.git?path=Packages/com.mitay-walle.textmeshpro-msdfa#v0.1.0
+https://github.com/mitay-walle/com.mitay-walle.textmeshpro-msdfa.git#v0.1.0
 ```
 
 Then run:
