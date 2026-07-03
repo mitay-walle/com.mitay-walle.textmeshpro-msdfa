@@ -10,13 +10,22 @@ It is experimental. The package patches embedded `com.unity.ugui`, so pin Unity/
 - `MSDFA Atlas` field in TMP Font Asset Inspector > `Generation Settings`.
 - RGBA32 distance-field atlas path and `TextMeshPro/MSDFA` shader.
 - Burst-backed glyph rendering for supported TrueType `glyf` outlines.
-- SDF fallback when the PoC outline path cannot render a glyph.
 
 ## Screenshots
 
 ![Font Asset Creator MSDFA Atlas toggle](Documentation~/images/tmp-msdfa-font-asset-creator.png)
 
 ![TMP Font Asset Inspector MSDFA Atlas field](Documentation~/images/tmp-msdfa-font-asset-inspector.png)
+
+## Visual Reference
+
+Images below are local copies from the Unity Discussions post linked in References.
+
+![MSDFA vs SDF text comparison](Documentation~/images/unity-discussions-msdf-vs-sdf.jpeg)
+
+![MSDFA atlas memory example](Documentation~/images/unity-discussions-msdf-detail.png)
+
+![SDF atlas memory example](Documentation~/images/unity-discussions-sdf-atlas.png)
 
 ## Installation
 
@@ -34,16 +43,6 @@ Tools > TextMeshPro MSDFA > Embed UGUI And Apply Patch
 
 The patcher embeds `com.unity.ugui`, applies `ugui-msdfa-package.patch`, and adds the `TMP_MSDFA_UGUI_PATCHED` define to TMP runtime/editor asmdefs. Git CLI must be available in `PATH`.
 
-## Usage
-
-1. Open `Window > TextMeshPro > Font Asset Creator`.
-2. Select a source font.
-3. Pick a distance-field render mode: `SDF`, `SDF8`, `SDF16`, `SDF32`, `SDFAA`, or `SDFAA_HINTED`.
-4. Enable `MSDFA Atlas`.
-5. Generate and save the font asset.
-
-For existing font assets, enable `MSDFA Atlas` in the TMP Font Asset Inspector. The package switches compatible materials to `TextMeshPro/MSDFA`.
-
 ## Tested
 
 Verified in this project with:
@@ -58,7 +57,7 @@ Verified in this project with:
 
 ## Memory Footprint
 
-MSDFA uses `TextureFormat.RGBA32` for distance-field atlases. Standard TMP SDF usually uses `Alpha8`, so atlas memory is about 4x higher at the same resolution, mipmaps off.
+Atlas memory: MSDFA uses `TextureFormat.RGBA32`. Standard TMP SDF usually uses `Alpha8`, so atlas memory is about 4x higher at the same resolution, mipmaps off.
 
 | Atlas | SDF `Alpha8` | MSDFA `RGBA32` |
 | --- | ---: | ---: |
@@ -66,19 +65,21 @@ MSDFA uses `TextureFormat.RGBA32` for distance-field atlases. Standard TMP SDF u
 | 1024x1024 | 1 MiB | 4 MiB |
 | 2048x2048 | 4 MiB | 16 MiB |
 
+Font memory: this PoC also needs the original font bytes for contour extraction, so font-file memory can be roughly x2 before atlas and parsed-shape cache overhead. Example: `Arial Unicode` at 23 MB becomes about 46 MB when duplicated in memory.
+
 Local stress result for glyph `V`, 1024x1024 atlas, 250 runs:
 
 - MSDFA: `RGBA32`, `2.189 ms/run`;
 - SDF: `Alpha8`, `0.521 ms/run`.
 
-Dynamic generation can also allocate a temporary `Alpha8` scratch texture for fallback, source font bytes, and parsed glyph-shape cache per `TMP_FontAsset`. Profile target builds before production use.
+Profile target builds before production use.
 
 ## Limitations
 
 - PoC, not production-ready.
 - Patch compatibility depends on the tested `com.unity.ugui` source layout.
 - Only distance-field TMP render modes use MSDFA.
-- The outline parser targets TrueType `glyf`; unsupported fonts/glyphs fall back to SDF in the RGBA atlas.
+- The outline parser targets TrueType `glyf`; other outline formats are out of scope for this package.
 - A cleaner long-term solution would be native TextCore glyph-outline access and `GlyphRenderMode.MSDF`/`GlyphRenderMode.MTSDF`.
 
 ## References
