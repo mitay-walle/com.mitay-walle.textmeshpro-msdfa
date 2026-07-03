@@ -3,9 +3,8 @@ Proof-of-concept UPM package for TextMeshPro with MSDFA / MTSDF - rendering. MSD
 
 ![MSDFA vs SDF text comparison](Documentation~/images/unity-discussions-msdf-vs-sdf.jpeg)
 
-## built-in solution Request 
+# Built-in solution Request 
 Please, UPVOTE built-in solution thread here: [Unity Discussions: TextMeshPro/TextCore MSDF request](https://discussions.unity.com/t/2026-could-textmeshpro-textcore-ever-support-multi-channel-signed-distance-fields/1730024)
-
 
 # It is experimental
 The package patches embedded `com.unity.ugui`, so pin Unity/UGUI versions and treat the API/serialized data as **unstable**
