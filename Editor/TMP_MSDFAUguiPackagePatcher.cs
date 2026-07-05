@@ -88,7 +88,7 @@ namespace TMPro.EditorUtilities
                 return;
             }
 
-            GitResult checkResult = RunGit(gitPath, projectPath, "apply", "--check", "--whitespace=nowarn", patchPath);
+            GitResult checkResult = RunGit(gitPath, projectPath, "apply", "--check", "--whitespace=nowarn", "-C0", patchPath);
             if (checkResult.ExitCode != 0)
             {
                 if (IsPatchAlreadyApplied(projectPath))
@@ -105,7 +105,7 @@ namespace TMPro.EditorUtilities
                 return;
             }
 
-            GitResult applyResult = RunGit(gitPath, projectPath, "apply", "--whitespace=nowarn", patchPath);
+            GitResult applyResult = RunGit(gitPath, projectPath, "apply", "--whitespace=nowarn", "-C0", patchPath);
             if (applyResult.ExitCode != 0)
             {
                 Debug.LogError($"[MSDFA] Failed to apply ugui patch. Exit code {applyResult.ExitCode}\nSTDOUT:\n{applyResult.StandardOutput}\nSTDERR:\n{applyResult.StandardError}");
