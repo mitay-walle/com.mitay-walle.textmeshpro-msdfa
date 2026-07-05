@@ -11,6 +11,11 @@
     "MSDF",
     "MTSDF"
   ],
+    "author": {
+    "name": "mitay-walle",
+    "email": "mitay-walle91@mail.ru",
+    "url": "https://github.com/mitay-walle"
+  },
   "dependencies": {
     "com.unity.ugui": "2.0.0",
     "com.unity.burst": "1.8.27",
