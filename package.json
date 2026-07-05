@@ -16,5 +16,6 @@
     "com.unity.burst": "1.8.27",
     "com.unity.collections": "2.6.3",
     "com.unity.test-framework.performance": "3.2.0"
-  }
+  },
+  "_fingerprint": "36e4544d4fd040f98fbff52676d16d1ca0135d17"
 }
