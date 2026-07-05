@@ -12,7 +12,7 @@ namespace TMPro.EditorUtilities
     public static class TMP_MSDFAUguiPackagePatcher
     {
         private const string PackageName = "com.unity.ugui";
-        private const string PatchPath = "Packages/com.mitay-walle.textmeshpro-msdfa/ugui-msdfa-package.patch";
+        private const string PatchFileName = "ugui-msdfa-package.patch";
         private const string MenuPath = "Tools/TextMeshPro MSDFA/Embed UGUI And Apply Patch";
         private const string PatchedDefine = "TMP_MSDFA_UGUI_PATCHED";
         private const string PackageVersionDefineName = "com.mitay-walle.textmeshpro-msdfa";
@@ -61,9 +61,11 @@ namespace TMPro.EditorUtilities
 
         private static void ApplyPatch()
         {
-            if (File.Exists(PatchPath) == false)
+            string projectPath = Directory.GetParent(Application.dataPath)?.FullName ?? Environment.CurrentDirectory;
+            string patchPath = GetPatchPath(projectPath);
+            if (File.Exists(patchPath) == false)
             {
-                Debug.LogError($"[MSDFA] Patch file not found: {PatchPath}");
+                Debug.LogError($"[MSDFA] Patch file not found: {patchPath}");
                 return;
             }
 
@@ -80,14 +82,13 @@ namespace TMPro.EditorUtilities
                 return;
             }
 
-            string projectPath = Directory.GetParent(Application.dataPath)?.FullName ?? Environment.CurrentDirectory;
             if (ArePatchTargetsPresent(projectPath) == false)
             {
                 Debug.LogError("[MSDFA] com.unity.ugui is embedded, but expected patch target files are missing.");
                 return;
             }
 
-            GitResult checkResult = RunGit(gitPath, projectPath, "apply", "--check", "--whitespace=nowarn", PatchPath);
+            GitResult checkResult = RunGit(gitPath, projectPath, "apply", "--check", "--whitespace=nowarn", patchPath);
             if (checkResult.ExitCode != 0)
             {
                 if (IsPatchAlreadyApplied(projectPath))
@@ -104,7 +105,7 @@ namespace TMPro.EditorUtilities
                 return;
             }
 
-            GitResult applyResult = RunGit(gitPath, projectPath, "apply", "--whitespace=nowarn", PatchPath);
+            GitResult applyResult = RunGit(gitPath, projectPath, "apply", "--whitespace=nowarn", patchPath);
             if (applyResult.ExitCode != 0)
             {
                 Debug.LogError($"[MSDFA] Failed to apply ugui patch. Exit code {applyResult.ExitCode}\nSTDOUT:\n{applyResult.StandardOutput}\nSTDERR:\n{applyResult.StandardError}");
@@ -115,6 +116,15 @@ namespace TMPro.EditorUtilities
             AssetDatabase.Refresh();
             Client.Resolve();
             Debug.Log("[MSDFA] com.unity.ugui embedded and MSDFA patch applied.");
+        }
+
+        private static string GetPatchPath(string projectPath)
+        {
+            UnityEditor.PackageManager.PackageInfo packageInfo = UnityEditor.PackageManager.PackageInfo.FindForPackageName(PackageVersionDefineName);
+            if (packageInfo != null && string.IsNullOrEmpty(packageInfo.resolvedPath) == false)
+                return Path.Combine(packageInfo.resolvedPath, PatchFileName);
+
+            return Path.Combine(projectPath, "Packages", PackageVersionDefineName, PatchFileName);
         }
 
         private static bool IsPatchAlreadyApplied(string projectPath)
