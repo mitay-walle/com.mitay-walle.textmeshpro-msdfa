@@ -12,6 +12,7 @@
     "MTSDF"
   ],
     "author": {
+  "author": {
     "name": "mitay-walle",
     "email": "mitay-walle91@mail.ru",
     "url": "https://github.com/mitay-walle"
@@ -23,4 +24,5 @@
     "com.unity.test-framework.performance": "3.2.0"
   },
   "_fingerprint": "36e4544d4fd040f98fbff52676d16d1ca0135d17"
+  "_fingerprint": "8e3b0ebb8eb3f3251b516ae58a3d76c996b5f8f6"
 }

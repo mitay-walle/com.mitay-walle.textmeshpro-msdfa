@@ -8,12 +8,15 @@ namespace TMPro.EditorUtilities
     public partial class TMPro_FontAssetCreatorWindow
     {
         private static readonly GUIContent MsdfaAtlasLabel = new GUIContent("MSDFA Atlas", "Stores distance-field atlas data in RGBA channels and uses the TextMeshPro/MSDFA shader.");
+        private static readonly GUIContent MsdfaFillRuleSignLabel = new GUIContent("MSDFA Fill Rule Sign", "Normalizes glyph contour winding and applies the glyph fill rule to RGB MSDF channels. Use this for glyf fonts with reversed winding or overlapping contours.");
 
         private bool m_IsMsdfaAtlasEnabled;
+        private bool m_UseMsdfaFillRuleSign;
 
         private void LoadMsdfaAtlasSettings(TMP_FontAsset fontAsset)
         {
             m_IsMsdfaAtlasEnabled = fontAsset != null && fontAsset.isMsdfaAtlasEnabled;
+            m_UseMsdfaFillRuleSign = fontAsset != null && fontAsset.useMsdfaFillRuleSign;
         }
 
         private void DrawMsdfaAtlasControls()
@@ -23,6 +26,15 @@ namespace TMPro.EditorUtilities
 
             if (m_IsMsdfaAtlasEnabled != previousValue)
                 m_IsFontAtlasInvalid = true;
+
+            using (new EditorGUI.DisabledScope(m_IsMsdfaAtlasEnabled == false))
+            {
+                bool previousFillRuleSignValue = m_UseMsdfaFillRuleSign;
+                m_UseMsdfaFillRuleSign = EditorGUILayout.Toggle(MsdfaFillRuleSignLabel, m_UseMsdfaFillRuleSign);
+
+                if (m_UseMsdfaFillRuleSign != previousFillRuleSignValue)
+                    m_IsFontAtlasInvalid = true;
+            }
         }
 
         private bool ShouldRenderMsdfaAtlas()
@@ -46,6 +58,7 @@ namespace TMPro.EditorUtilities
             fontAsset.atlasRenderMode = m_GlyphRenderMode;
             fontAsset.atlasPadding = m_Padding;
             fontAsset.isMsdfaAtlasEnabled = true;
+            fontAsset.useMsdfaFillRuleSign = m_UseMsdfaFillRuleSign;
             fontAsset.sourceFontFile = m_SourceFont;
             fontAsset.m_SourceFontFile_EditorRef = m_SourceFont;
             fontAsset.m_SourceFontFileGUID = m_SourceFont == null ? string.Empty : AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(m_SourceFont));
@@ -59,6 +72,7 @@ namespace TMPro.EditorUtilities
                 return;
 
             fontAsset.isMsdfaAtlasEnabled = m_IsMsdfaAtlasEnabled;
+            fontAsset.useMsdfaFillRuleSign = m_UseMsdfaFillRuleSign;
             if (m_IsMsdfaAtlasEnabled)
             {
                 if (fontAsset.RefreshMsdfaSourceFontDataFromEditor() == false)

@@ -13,16 +13,16 @@ namespace TMPro
         internal delegate void CopyGlyphToMsdfaAtlasDelegate(byte* sourcePixels, byte* atlasPixels, int textureWidth, int textureHeight, int padding, int glyphX, int glyphY, int glyphWidth, int glyphHeight);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate void RenderGlyphMsdfaDelegate(MsdfaSegment* segments, int segmentCount, byte* atlasPixels, int textureWidth, int textureHeight, int glyphX, int glyphY, int glyphWidth, int glyphHeight, int padding, float originX, float originY, float boundsMinX, float boundsMinY, float unitScale, float pixelRange, byte* correctionMask);
+        internal delegate void RenderGlyphMsdfaDelegate(MsdfaSegment* segments, int segmentCount, byte* atlasPixels, int textureWidth, int textureHeight, int glyphX, int glyphY, int glyphWidth, int glyphHeight, int padding, float originX, float originY, float boundsMinX, float boundsMinY, float unitScale, float pixelRange, int useFillRuleSign, byte* correctionMask);
 
         internal static void CopyGlyphToMsdfaAtlas(byte* sourcePixels, byte* atlasPixels, int textureWidth, int textureHeight, int padding, int glyphX, int glyphY, int glyphWidth, int glyphHeight)
         {
             CopyGlyphToMsdfaAtlasFunction(sourcePixels, atlasPixels, textureWidth, textureHeight, padding, glyphX, glyphY, glyphWidth, glyphHeight);
         }
 
-        internal static void RenderGlyphMsdfa(MsdfaSegment* segments, int segmentCount, byte* atlasPixels, int textureWidth, int textureHeight, int glyphX, int glyphY, int glyphWidth, int glyphHeight, int padding, float originX, float originY, float boundsMinX, float boundsMinY, float unitScale, float pixelRange, byte* correctionMask)
+        internal static void RenderGlyphMsdfa(MsdfaSegment* segments, int segmentCount, byte* atlasPixels, int textureWidth, int textureHeight, int glyphX, int glyphY, int glyphWidth, int glyphHeight, int padding, float originX, float originY, float boundsMinX, float boundsMinY, float unitScale, float pixelRange, int useFillRuleSign, byte* correctionMask)
         {
-            RenderGlyphMsdfaFunction(segments, segmentCount, atlasPixels, textureWidth, textureHeight, glyphX, glyphY, glyphWidth, glyphHeight, padding, originX, originY, boundsMinX, boundsMinY, unitScale, pixelRange, correctionMask);
+            RenderGlyphMsdfaFunction(segments, segmentCount, atlasPixels, textureWidth, textureHeight, glyphX, glyphY, glyphWidth, glyphHeight, padding, originX, originY, boundsMinX, boundsMinY, unitScale, pixelRange, useFillRuleSign, correctionMask);
         }
 
         [StructLayout(LayoutKind.Sequential)]

@@ -10,6 +10,7 @@ namespace TMPro
     internal static unsafe class TMP_MSDFABurstRenderFunctions
     {
         private const float MaxDistance = 3.40282347e+38f;
+        private const int QuadraticFillRuleStepCount = 8;
 
         [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(TMP_MSDFABurstRenderer.CopyGlyphToMsdfaAtlasDelegate))]
@@ -49,7 +50,7 @@ namespace TMPro
 
         [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(TMP_MSDFABurstRenderer.RenderGlyphMsdfaDelegate))]
-        internal static void RenderGlyphMsdfaBurst(MsdfaSegment* segments, int segmentCount, byte* atlasPixels, int textureWidth, int textureHeight, int glyphX, int glyphY, int glyphWidth, int glyphHeight, int padding, float originX, float originY, float boundsMinX, float boundsMinY, float unitScale, float pixelRange, byte* correctionMask)
+        internal static void RenderGlyphMsdfaBurst(MsdfaSegment* segments, int segmentCount, byte* atlasPixels, int textureWidth, int textureHeight, int glyphX, int glyphY, int glyphWidth, int glyphHeight, int padding, float originX, float originY, float boundsMinX, float boundsMinY, float unitScale, float pixelRange, int useFillRuleSign, byte* correctionMask)
         {
             int xMin = glyphX - padding;
             if (xMin < 0)
@@ -129,6 +130,14 @@ namespace TMPro
                         DistanceToPerpendicularDistance(ref greenSignedDistance, fontX, fontY, greenParam, segments[greenEdgeIndex]);
                     if (blueEdgeIndex >= 0)
                         DistanceToPerpendicularDistance(ref blueSignedDistance, fontX, fontY, blueParam, segments[blueEdgeIndex]);
+
+                    if (useFillRuleSign != 0)
+                    {
+                        bool isInside = IsInsideFillRule(fontX, fontY, segments, segmentCount);
+                        ApplyFillRuleSign(ref redSignedDistance, isInside);
+                        ApplyFillRuleSign(ref greenSignedDistance, isInside);
+                        ApplyFillRuleSign(ref blueSignedDistance, isInside);
+                    }
 
                     int atlasIndex = (y * textureWidth + x) * 4;
                     atlasPixels[atlasIndex] = EncodeDistance(redSignedDistance * unitScale, pixelRange);
@@ -515,6 +524,62 @@ namespace TMPro
                         distance = perpendicularDistance;
                 }
             }
+        }
+
+        private static bool IsInsideFillRule(float x, float y, MsdfaSegment* segments, int segmentCount)
+        {
+            int winding = 0;
+            for (int i = 0; i < segmentCount; i++)
+            {
+                MsdfaSegment segment = segments[i];
+                if (segment.Type == 2)
+                {
+                    AddQuadraticFillRuleWinding(x, y, segment, ref winding);
+                    continue;
+                }
+
+                AddLinearFillRuleWinding(x, y, segment.X0, segment.Y0, segment.X1, segment.Y1, ref winding);
+            }
+
+            return winding != 0;
+        }
+
+        private static void AddQuadraticFillRuleWinding(float x, float y, MsdfaSegment segment, ref int winding)
+        {
+            float previousX = segment.X0;
+            float previousY = segment.Y0;
+            for (int i = 1; i <= QuadraticFillRuleStepCount; i++)
+            {
+                Point(segment, i / (float)QuadraticFillRuleStepCount, out float currentX, out float currentY);
+                AddLinearFillRuleWinding(x, y, previousX, previousY, currentX, currentY, ref winding);
+                previousX = currentX;
+                previousY = currentY;
+            }
+        }
+
+        private static void AddLinearFillRuleWinding(float x, float y, float x0, float y0, float x1, float y1, ref int winding)
+        {
+            if (y0 <= y)
+            {
+                if (y1 > y && IsLeft(x0, y0, x1, y1, x, y) > 0)
+                    winding++;
+
+                return;
+            }
+
+            if (y1 <= y && IsLeft(x0, y0, x1, y1, x, y) < 0)
+                winding--;
+        }
+
+        private static float IsLeft(float x0, float y0, float x1, float y1, float x, float y)
+        {
+            return (x1 - x0) * (y - y0) - (x - x0) * (y1 - y0);
+        }
+
+        private static void ApplyFillRuleSign(ref float distance, bool isInside)
+        {
+            float absoluteDistance = Abs(distance);
+            distance = isInside ? absoluteDistance : -absoluteDistance;
         }
 
         private static bool SignedDistanceLess(float distance, float dot, float otherDistance, float otherDot)

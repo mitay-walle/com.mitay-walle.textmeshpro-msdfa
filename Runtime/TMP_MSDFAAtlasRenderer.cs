@@ -61,10 +61,14 @@ namespace TMPro
             if (FontEngine.TryPackGlyphInAtlas(glyph, padding, packingMode, renderMode, atlasTexture.width, atlasTexture.height, freeGlyphRects, usedGlyphRects) == false)
                 return false;
 
-            if (RenderGlyphToMsdfaAtlas(msdfaFont, glyph, padding, atlasTexture) == false)
+            if (RenderGlyphToMsdfaAtlas(msdfaFont, glyph, padding, atlasTexture, fontAsset.useMsdfaFillRuleSign) == false)
+            {
                 RenderGlyphsWithSdfFallback(new List<Glyph> { glyph }, padding, renderMode, atlasTexture);
+            }
             else
+            {
                 atlasTexture.Apply(false, false);
+            }
 
             return true;
         }
@@ -98,7 +102,7 @@ namespace TMPro
             List<Glyph> fallbackGlyphs = null;
             for (int i = 0; i < glyphsAdded.Count; i++)
             {
-                if (RenderGlyphToMsdfaAtlas(msdfaFont, glyphsAdded[i], padding, atlasTexture))
+                if (RenderGlyphToMsdfaAtlas(msdfaFont, glyphsAdded[i], padding, atlasTexture, fontAsset.useMsdfaFillRuleSign))
                     continue;
 
                 if (fallbackGlyphs == null)
@@ -109,8 +113,8 @@ namespace TMPro
 
             if (fallbackGlyphs != null)
                 RenderGlyphsWithSdfFallback(fallbackGlyphs, padding, renderMode, atlasTexture);
-            else
-                atlasTexture.Apply(false, false);
+
+            atlasTexture.Apply(false, false);
 
             return allGlyphsAdded;
         }
@@ -171,7 +175,7 @@ namespace TMPro
             List<Glyph> fallbackGlyphs = null;
             for (int i = 0; i < glyphs.Count; i++)
             {
-                if (RenderGlyphToMsdfaAtlas(msdfaFont, glyphs[i], padding, atlasTexture))
+                if (RenderGlyphToMsdfaAtlas(msdfaFont, glyphs[i], padding, atlasTexture, fontAsset.useMsdfaFillRuleSign))
                     continue;
 
                 if (fallbackGlyphs == null)
@@ -204,7 +208,7 @@ namespace TMPro
             }
         }
 
-        private static bool RenderGlyphToMsdfaAtlas(TMP_MSDFAFont font, Glyph glyph, int padding, Texture2D atlasTexture)
+        private static bool RenderGlyphToMsdfaAtlas(TMP_MSDFAFont font, Glyph glyph, int padding, Texture2D atlasTexture, bool useFillRuleSign)
         {
             if (font.TryGetGlyphShape(glyph.index, out TMP_MSDFAFont.GlyphShape shape) == false)
                 return false;
@@ -246,7 +250,7 @@ namespace TMPro
                 TMP_MSDFABurstRenderer.MsdfaSegment* segmentPointer = (TMP_MSDFABurstRenderer.MsdfaSegment*)NativeArrayUnsafeUtility.GetUnsafeReadOnlyPtr(segments);
                 byte* atlasPointer = (byte*)NativeArrayUnsafeUtility.GetUnsafePtr(atlasPixels);
                 byte* correctionMaskPointer = (byte*)NativeArrayUnsafeUtility.GetUnsafePtr(correctionMask);
-                TMP_MSDFABurstRenderer.RenderGlyphMsdfa(segmentPointer, segments.Length, atlasPointer, atlasTexture.width, atlasTexture.height, glyphRect.x, glyphRect.y, glyphRect.width, glyphRect.height, padding, originX, originY, bounds.MinX, bounds.MinY, unitScale, padding + 1, correctionMaskPointer);
+                TMP_MSDFABurstRenderer.RenderGlyphMsdfa(segmentPointer, segments.Length, atlasPointer, atlasTexture.width, atlasTexture.height, glyphRect.x, glyphRect.y, glyphRect.width, glyphRect.height, padding, originX, originY, bounds.MinX, bounds.MinY, unitScale, padding + 1, useFillRuleSign ? 1 : 0, correctionMaskPointer);
             }
             finally
             {
@@ -266,7 +270,8 @@ namespace TMPro
             DateTime lastWriteTimeUtc = File.GetLastWriteTimeUtc(sourceFontPath);
             if (FontCacheLookup.TryGetValue(fontAsset, out FontCache cache)
                 && string.Equals(cache.SourceFontPath, sourceFontPath, StringComparison.OrdinalIgnoreCase)
-                && cache.LastWriteTimeUtc == lastWriteTimeUtc)
+                && cache.LastWriteTimeUtc == lastWriteTimeUtc
+                && cache.UseFillRuleSign == fontAsset.useMsdfaFillRuleSign)
             {
                 font = cache.Font;
                 return font != null;
@@ -276,10 +281,10 @@ namespace TMPro
             if (fontData == null || fontData.Length == 0)
                 return false;
 
-            if (TMP_MSDFAFont.TryCreate(fontData, out font) == false)
+            if (TMP_MSDFAFont.TryCreate(fontData, fontAsset.useMsdfaFillRuleSign, out font) == false)
                 return false;
 
-            FontCacheLookup[fontAsset] = new FontCache(sourceFontPath, lastWriteTimeUtc, font);
+            FontCacheLookup[fontAsset] = new FontCache(sourceFontPath, lastWriteTimeUtc, fontAsset.useMsdfaFillRuleSign, font);
             return true;
         }
 
@@ -342,12 +347,14 @@ namespace TMPro
         {
             internal readonly string SourceFontPath;
             internal readonly DateTime LastWriteTimeUtc;
+            internal readonly bool UseFillRuleSign;
             internal readonly TMP_MSDFAFont Font;
 
-            internal FontCache(string sourceFontPath, DateTime lastWriteTimeUtc, TMP_MSDFAFont font)
+            internal FontCache(string sourceFontPath, DateTime lastWriteTimeUtc, bool useFillRuleSign, TMP_MSDFAFont font)
             {
                 SourceFontPath = sourceFontPath;
                 LastWriteTimeUtc = lastWriteTimeUtc;
+                UseFillRuleSign = useFillRuleSign;
                 Font = font;
             }
         }

@@ -32,18 +32,21 @@ namespace TMPro
         private readonly uint m_GlyphTableOffset;
         private readonly ushort m_NumGlyphs;
 
-        private TMP_MSDFAFont(byte[] data, uint[] locations, uint glyphTableOffset, ushort unitsPerEm, ushort numGlyphs)
+        private readonly bool m_NormalizeContourWinding;
+
+        private TMP_MSDFAFont(byte[] data, uint[] locations, uint glyphTableOffset, ushort unitsPerEm, ushort numGlyphs, bool normalizeContourWinding)
         {
             m_Data = data;
             m_Locations = locations;
             m_GlyphTableOffset = glyphTableOffset;
             UnitsPerEm = unitsPerEm;
             m_NumGlyphs = numGlyphs;
+            m_NormalizeContourWinding = normalizeContourWinding;
         }
 
         internal ushort UnitsPerEm { get; }
 
-        internal static bool TryCreate(byte[] data, out TMP_MSDFAFont font)
+        internal static bool TryCreate(byte[] data, bool normalizeContourWinding, out TMP_MSDFAFont font)
         {
             font = null;
             if (data == null || data.Length < 12)
@@ -68,7 +71,7 @@ namespace TMPro
             if (locations == null)
                 return false;
 
-            font = new TMP_MSDFAFont(data, locations, glyf.Offset, unitsPerEm, numGlyphs);
+            font = new TMP_MSDFAFont(data, locations, glyf.Offset, unitsPerEm, numGlyphs, normalizeContourWinding);
             return true;
         }
 
@@ -86,6 +89,9 @@ namespace TMPro
 
             List<List<ContourEdge>> contours = new List<List<ContourEdge>>();
             ParseGlyph(glyphIndex, AffineTransform.Identity, 0, contours);
+            if (m_NormalizeContourWinding)
+                NormalizeContourWinding(contours);
+
             EdgeColoringInkTrap(contours, EdgeColoringAngleThreshold, 0);
             AddSegments(contours, shape.Segments, ref shape.Bounds);
             m_GlyphCache[glyphIndex] = shape;
@@ -405,6 +411,48 @@ namespace TMPro
             }
 
             contourEdges.Add(ContourEdge.CreateQuadratic(start, control, end));
+        }
+
+        private static void NormalizeContourWinding(List<List<ContourEdge>> contours)
+        {
+            float area = 0;
+            for (int contourIndex = 0; contourIndex < contours.Count; contourIndex++)
+                area += SignedArea(contours[contourIndex]);
+
+            if (area <= 0)
+                return;
+
+            for (int contourIndex = 0; contourIndex < contours.Count; contourIndex++)
+                ReverseContour(contours[contourIndex]);
+        }
+
+        private static float SignedArea(List<ContourEdge> contourEdges)
+        {
+            float area = 0;
+            for (int edgeIndex = 0; edgeIndex < contourEdges.Count; edgeIndex++)
+            {
+                ContourEdge edge = contourEdges[edgeIndex];
+                Vector2 previous = edge.Point(0);
+                for (int step = 1; step <= EdgeLengthPrecision; step++)
+                {
+                    Vector2 current = edge.Point(step / (float)EdgeLengthPrecision);
+                    area += previous.X * current.Y - current.X * previous.Y;
+                    previous = current;
+                }
+            }
+
+            return area * 0.5f;
+        }
+
+        private static void ReverseContour(List<ContourEdge> contourEdges)
+        {
+            int count = contourEdges.Count;
+            ContourEdge[] reversedEdges = new ContourEdge[count];
+            for (int i = 0; i < count; i++)
+                reversedEdges[i] = contourEdges[count - i - 1].Reversed();
+
+            contourEdges.Clear();
+            contourEdges.AddRange(reversedEdges);
         }
 
         private static void EdgeColoringInkTrap(List<List<ContourEdge>> contours, float angleThreshold, ulong seed)
@@ -907,6 +955,14 @@ namespace TMPro
                     CreateQuadratic(Point(1f / 3f), Vector2.Lerp(Vector2.Lerp(m_Point0, m_Point1, 5f / 9f), Vector2.Lerp(m_Point1, m_Point2, 4f / 9f), 0.5f), Point(2f / 3f)),
                     CreateQuadratic(Point(2f / 3f), Vector2.Lerp(m_Point1, m_Point2, 2f / 3f), m_Point2)
                 };
+            }
+
+            internal ContourEdge Reversed()
+            {
+                if (m_Type == EdgeTypeLinear)
+                    return CreateLine(m_Point1, m_Point0);
+
+                return CreateQuadratic(m_Point2, m_Point1, m_Point0);
             }
 
             internal Segment ToSegment()

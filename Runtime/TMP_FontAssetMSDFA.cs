@@ -12,10 +12,19 @@ namespace TMPro
         [SerializeField]
         private bool m_IsMsdfaAtlasEnabled;
 
+        [SerializeField]
+        private bool m_UseMsdfaFillRuleSign;
+
         public bool isMsdfaAtlasEnabled
         {
             get => m_IsMsdfaAtlasEnabled;
             set => m_IsMsdfaAtlasEnabled = value;
+        }
+
+        public bool useMsdfaFillRuleSign
+        {
+            get => m_UseMsdfaFillRuleSign;
+            set => m_UseMsdfaFillRuleSign = value;
         }
 
         internal bool TryGetMsdfaSourceFontPath(out string fullPath)
