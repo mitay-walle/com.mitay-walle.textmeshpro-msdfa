@@ -2,7 +2,7 @@
   "name": "com.mitay-walle.textmeshpro-msdfa",
   "displayName": "TextMeshPro MSDFA",
   "version": "0.1.1",
-  "unity": "2022.3",
+  "unity": "6000.0",
   "description": "MSDFA font atlas generation and shader support for TextMeshPro.",
   "keywords": [
     "TextMeshPro",
